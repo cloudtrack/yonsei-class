@@ -1,0 +1,107 @@
+***Demo Script***
+
+aws configure
+
+aws kinesis create-stream \
+  --stream-name AccessLogStream \
+  --shard-count 1
+
+aws s3 mb s3://YOUR-BUCKET-NAME
+
+aws emr create-cluster \
+  --name "demo" \
+  --instance-type m3.xlarge \
+  --instance-count 2 \
+  --release-label emr-4.0.0 \
+  --ec2-attributes KeyName=YOUR-AWS-SSH-KEY \
+  --use-default-roles \
+  --applications Name=Hive Name=Spark
+
+aws redshift create-cluster \  --cluster-identifier demo \
+  --db-name demo \
+  --node-type dc1.large \
+  --cluster-type single-node \
+  --master-username master \
+  --master-user-password CHOOSE-A-REDSHIFT-PASSWORD \
+  --publicly-accessible \
+  --port 8192
+
+
+wget http://emr-kinesis.s3.amazonaws.com/publisher/\kinesis-log4j-appender-1.0.0.jar
+
+wget http://elasticmapreduce.s3.amazonaws.com/samples/\pig-apache/input/access_log_1
+
+java -cp .:kinesis-log4j-appender-1.0.0.jar \com.amazonaws.services.kinesis.log4j.FilePublisher \access_log_1 &
+
+ssh -o TCPKeepAlive=yes -o ServerAliveInterval=30 \
+-i YOUR-AWS-SSH-KEY hadoop@YOUR-EMR-HOSTNAME
+
+wget http://repo1.maven.org/maven2/com/amazonaws/amazon-kinesis-client/1.6.0/amazon-kinesis-client-1.6.0.jar
+
+sudo sed -i 's/INFO/ERROR/g' /usr/lib/spark/conf/spark-defaults.conf
+sudo sed -i 's/INFO/ERROR/g' /usr/lib/spark/conf/log4j.properties
+
+spark-shell --jars /usr/lib/spark/extras/lib/spark-streaming-kinesis-asl.jar,amazon-kinesis-client-1.6.0.jar --driver-java-options "-Dlog4j.configuration=file:///etc/spark/conf/log4j.properties"
+
+aws s3 ls s3://YOUR-S3-BUCKET/access-log-raw/ --recursive
+
+aws s3 ls s3://YOUR-S3-BUCKET/access-log-raw/year=yyyy/month=mm/day=dd/hour=HH/
+
+ssh -i YOUR-AWS-SSH-KEY YOUR-EMR-HOSTNAME
+
+spark-sql --driver-java-options "-Dlog4j.configuration=file:///etc/spark/conf/log4j.properties"
+
+CREATE EXTERNAL TABLE access_log_raw(
+  host STRING, identity STRING, 
+  user STRING, request_time STRING, 
+  request STRING, status STRING,
+  size STRING, referrer STRING, 
+  agent STRING
+)
+PARTITIONED BY (year INT, month INT, day INT, hour INT, min INT)
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.RegexSerDe'
+WITH SERDEPROPERTIES (
+  "input.regex" = "([^ ]*) ([^ ]*) ([^ ]*) (-|\\[[^\\]]*\\]) ([^ \"]*|\"[^\"]*\") (-|[0-9]*) (-|[0-9]*)(?: ([^ \"]*|\"[^\"]*\") ([^ \"]*|\"[^\"]*\"))?"
+) 
+LOCATION 's3://YOUR-S3-BUCKET/access-log-raw';
+
+msck repair table access_log_raw;
+
+-- return the first row in the stream
+SELECT * FROM access_log_raw LIMIT 1;
+
+-- return count all items in the Stream
+SELECT COUNT(1) FROM access_log_raw;
+
+-- find the top 10 hostsSELECT host, COUNT(1) FROM access_log_raw GROUP BY host ORDER BY 2 DESC LIMIT 10;
+
+CREATE EXTERNAL TABLE access_log_processed (
+  request_time STRING,
+  host STRING,
+  request STRING,
+  status INT,
+  referrer STRING,
+  agent STRING
+)
+PARTITIONED BY (hour STRING)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t' 
+STORED AS TEXTFILE 
+LOCATION 's3://YOUR-S3-BUCKET/access-log-processed';
+
+-- setup Hive's "dynamic partitioning"
+-- this will split output files when writing to Amazon S3
+SET hive.exec.dynamic.partition.mode=nonstrict;
+SET hive.exec.dynamic.partition=true;
+
+
+-- compress output files on Amazon S3 using Gzip
+SET mapred.output.compress=true;
+SET hive.exec.compress.output=true;
+SET mapred.output.compression.codec= org.apache.hadoop.io.compress.GzipCodec;
+SET io.compression.codecs=org.apache.hadoop.io.compress.GzipCodec;
+
+-- redshift command
+create table users( userid integer not null distkey sortkey, username char(8), firstname varchar(30), lastname varchar(30), city varchar(30), state char(2), email varchar(100), phone char(14), likesports boolean, liketheatre boolean, likeconcerts boolean, likejazz boolean, likeclassical boolean, likeopera boolean, likerock boolean, likevegas boolean, likebroadway boolean, likemusicals boolean);
+
+copy users from 's3://awssampledbuswest2/tickit/allusers_pipe.txt' CREDENTIALS 'aws_access_key_id=xxxx;aws_secret_access_key=xxxxx' delimiter '|';
+
