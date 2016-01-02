@@ -18,8 +18,8 @@ This class aims for students to learn field technology in software developmenet.
 ** Please refer to "aws-educate-guiance.pdf"
 
 ### Prerequisite
-# Install AWS CLI: https://aws.amazon.com/ko/cli/
-# Free QuickLab.com 
+* Install AWS CLI: https://aws.amazon.com/ko/cli/
+* Free QuickLab.com 
 ** Amazon S3: https://qwiklab.com/focuses/preview/1170
 ** Amazon EC2: https://qwiklab.com/focuses/preview/1167
 ** Amazon EMR: https://qwiklab.com/focuses/preview/1168
