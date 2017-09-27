@@ -2,7 +2,7 @@
 This class aims for students to learn field technology in software developmenet. AWS engaged two weeks of big data analytics based cloud computing technology and use them for their projects. 
 
 ## Class Description
-* Time: 18:00-21:00 pm on Friday, 2015
+* Time: 18:00-21:00 pm on Septembeer 27, 2017
 * Venue: AWS Korea, Yeonsei University 
 * Teacher: Channy Yun (channy@snu.ac.kr)
 
