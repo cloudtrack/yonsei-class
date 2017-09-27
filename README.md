@@ -1,4 +1,4 @@
-# Software Mentoring I 2015
+# Software Mentoring I 2017
 This class aims for students to learn field technology in software developmenet. AWS engaged two weeks of big data analytics based cloud computing technology and use them for their projects. 
 
 ## Class Description
